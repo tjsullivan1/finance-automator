@@ -1,0 +1,15 @@
+[
+    {
+       "name": "Mortgage",
+       "match_strings": [
+            "mortgage"
+       ]
+    },   
+    {
+       "name": "Donations",
+       "match_strings": [
+            "donations",
+            "donation to"
+        ]
+    }
+]
