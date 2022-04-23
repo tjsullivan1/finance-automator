@@ -130,5 +130,5 @@ dmypy.json
 
 
 # finance-automator specifics
-data/*.json
+data/*
 !data/sample*
