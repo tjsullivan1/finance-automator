@@ -132,3 +132,5 @@ dmypy.json
 # finance-automator specifics
 data/*
 !data/sample*
+
+*.ipynb
