@@ -14,11 +14,12 @@ def import_wells_fargo_transactions(statement_csv) -> list:
             rows.append({
                 'Date': row[0], 
                 'Amount': row[1], 
-                'Description': row[4]
+                'Description': row[4],
+                'Bank': 'Wells Fargo'
             })
             
     return rows
-
+    
 
 def import_amex_transactions(statement_csv) -> list:
     '''
@@ -32,8 +33,9 @@ def import_amex_transactions(statement_csv) -> list:
             # TODO: There's got to be a more pythonic way to do this. 
             rows.append({
                 'Date': row.get('Date'), 
-                'Amount': row.get('Amount'), 
-                'Description': row.get('Description')
+                'Amount': -(float(row.get('Amount'))),
+                'Description': row.get('Description'),
+                'Bank': 'American Express'
             })
             
     return rows
@@ -49,7 +51,8 @@ def import_chase_transactions(statement_csv) -> list:
             rows.append({
                 'Date': row.get('Transaction Date'), 
                 'Amount': row.get('Amount'), 
-                'Description': row.get('Description')
+                'Description': row.get('Description'),
+                'Bank': 'Chase Visa'
             })
             
     return rows
