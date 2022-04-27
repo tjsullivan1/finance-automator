@@ -52,13 +52,11 @@ def loop_to_set_category(transaction_rows, income_categories: list, expense_cate
             #print('Need category')
             if float(trans.get('Amount', 0)) > 0.0:
                 set_category(trans, income_categories)
+                # Check to see if something is a refund. If it is, we'll put it into the expense category as a positive number
+                if not trans['Category']:
+                    set_category(trans, expense_categories)
             else:
-                current_description = trans.get('Description')
-                # print(current_description)
-                for category in expense_categories:
-                    trans['Category'] = match_category(category, current_description)
-                    if trans['Category']:
-                        break
+                set_category(trans, expense_categories)
             
             if not trans['Category']:
                 print(trans)
