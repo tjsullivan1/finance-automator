@@ -66,3 +66,5 @@ def import_chase_transactions(statement_csv) -> list:
 
 
 # TODO: Add Marcus.com statement parser
+# TODO: Add paystub parser
+# TODO: Add fidelity statement parser
