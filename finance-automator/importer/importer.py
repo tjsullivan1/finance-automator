@@ -1,4 +1,5 @@
 import csv
+from datetime import datetime
 
 
 def import_wells_fargo_transactions(statement_csv) -> list:
@@ -14,7 +15,7 @@ def import_wells_fargo_transactions(statement_csv) -> list:
         for row in csvreader:
             rows.append(
                 {
-                    "Date": row[0],
+                    "Date": datetime.strptime(row[0], '%m/%d/%Y'),
                     "Amount": float(row[1]),
                     "Description": row[4],
                     "Bank": "Wells Fargo",
@@ -36,7 +37,7 @@ def import_amex_transactions(statement_csv) -> list:
             # TODO: There's got to be a more pythonic way to do this.
             rows.append(
                 {
-                    "Date": row.get("Date"),
+                    "Date": datetime.strptime(row.get("Date"), '%m/%d/%Y'),
                     "Amount": -(float(row.get("Amount"))),
                     "Description": row.get("Description"),
                     "Bank": "American Express",
@@ -55,7 +56,7 @@ def import_chase_transactions(statement_csv) -> list:
             # TODO: There's got to be a more pythonic way to do this.
             rows.append(
                 {
-                    "Date": row.get("Transaction Date"),
+                    "Date": datetime.strptime(row.get("Transaction Date"), '%m/%d/%Y'),
                     "Amount": float(row.get("Amount")),
                     "Description": row.get("Description"),
                     "Bank": "Chase Visa",
