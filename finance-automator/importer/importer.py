@@ -15,7 +15,7 @@ def import_wells_fargo_transactions(statement_csv) -> list:
             rows.append(
                 {
                     "Date": row[0],
-                    "Amount": row[1],
+                    "Amount": float(row[1]),
                     "Description": row[4],
                     "Bank": "Wells Fargo",
                 }
@@ -56,7 +56,7 @@ def import_chase_transactions(statement_csv) -> list:
             rows.append(
                 {
                     "Date": row.get("Transaction Date"),
-                    "Amount": row.get("Amount"),
+                    "Amount": float(row.get("Amount")),
                     "Description": row.get("Description"),
                     "Bank": "Chase Visa",
                 }
