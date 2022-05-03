@@ -2,6 +2,8 @@ import csv
 import json
 import itertools
 
+import pandas as pd
+
 from importer.importer import (
     import_amex_transactions,
     import_chase_transactions,
@@ -24,4 +26,11 @@ categories = get_categories_from_file(
     "/home/tjs/finance-automator/data/categories.json"
 )
 
-print(loop_to_set_category(transactions, categories))
+categorized, uncategorized = loop_to_set_category(transactions, categories)
+
+# TODO: write uncategorized to file/queue. 
+
+dfItem = pd.DataFrame.from_records(categorized)
+dfItem['Date']=pd.to_datetime(dfItem['Date'])
+GroupItem = dfItem.groupby([pd.Grouper(key='Date', freq='M'), 'Category']).sum()
+print(GroupItem)
