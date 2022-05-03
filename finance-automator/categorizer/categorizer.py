@@ -46,8 +46,20 @@ def set_category(trans: dict, categories: list):
     return trans
 
 
+def get_category_from_user(trans, names):
+    category_undefined = True
+    while category_undefined:
+        user_defined_category = input(f"Please classify this transaction:\n{trans}\n")
+
+        if user_defined_category in names:
+            category_undefined = False
+
+    return user_defined_category
+
+
 def loop_to_set_category(transaction_rows, categories: list):
     categorized_transactions = []
+    uncategorized_transactions = []
     for trans in transaction_rows:
         # print(type(trans))
         # Check to ensure that we have a key called category and that the value is not None
@@ -56,6 +68,11 @@ def loop_to_set_category(transaction_rows, categories: list):
         else:
             set_category(trans, categories)
 
-            categorized_transactions.append(trans)
+            if trans.get("Category"):
+                categorized_transactions.append(trans)
+            else:
+                uncategorized_transactions.append(trans)
+            #     category_names = [name.get('name') for name in categories]
+            #     trans["Category"] = get_category_from_user(trans, category_names)
 
-    return categorized_transactions
+    return categorized_transactions, uncategorized_transactions
