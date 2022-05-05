@@ -1,21 +1,17 @@
 import csv
-import json
-import itertools
-
-import pandas as pd
-
-from categorizer.categorizer import get_categories_from_file, loop_to_set_category
-
-
-import csv
 import hashlib
-import jsonpickle
-
+import itertools
+import json
+import re
 from datetime import datetime
+
+import jsonpickle
+import pandas as pd
 
 
 def get_checksum_from_dict(transaction: dict) -> str:
-    return hashlib.md5(jsonpickle.encode(transaction).encode("utf-8")).hexdigest()
+    # TJS -- we are not using this for security, just for hashing for uniqueness.
+    return hashlib.md5(jsonpickle.encode(transaction).encode("utf-8")).hexdigest() #nosec
 
 
 def check_import_transaction_existed(checksum: str, checksum_list: list) -> bool:
@@ -107,16 +103,7 @@ def import_chase_transactions(statement_csv) -> list:
     return rows
 
 
-import csv
-import re
-import json
-import itertools
 
-from importer.importer import (
-    import_amex_transactions,
-    import_chase_transactions,
-    import_wells_fargo_transactions,
-)
 
 
 def get_categories_from_file(file) -> list:
@@ -185,8 +172,6 @@ def loop_to_set_category(transaction_rows, categories: list):
             #     trans["Category"] = get_category_from_user(trans, category_names)
 
     return categorized_transactions, uncategorized_transactions
-
-
 
 
 delta_rows = import_amex_transactions(
