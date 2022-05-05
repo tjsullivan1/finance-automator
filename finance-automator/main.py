@@ -3,15 +3,20 @@ import hashlib
 import itertools
 import json
 import re
+import uuid
 from datetime import datetime
 
 import jsonpickle
 import pandas as pd
+from azure.core.exceptions import HttpResponseError, ResourceExistsError
+from azure.data.tables import TableClient
 
 
 def get_checksum_from_dict(transaction: dict) -> str:
     # TJS -- we are not using this for security, just for hashing for uniqueness.
-    return hashlib.md5(jsonpickle.encode(transaction).encode("utf-8")).hexdigest() #nosec
+    return hashlib.md5(
+        jsonpickle.encode(transaction).encode("utf-8")
+    ).hexdigest()  # nosec
 
 
 def check_import_transaction_existed(checksum: str, checksum_list: list) -> bool:
@@ -103,9 +108,6 @@ def import_chase_transactions(statement_csv) -> list:
     return rows
 
 
-
-
-
 def get_categories_from_file(file) -> list:
     with open(file) as file:
         categories = json.load(file)
@@ -174,26 +176,35 @@ def loop_to_set_category(transaction_rows, categories: list):
     return categorized_transactions, uncategorized_transactions
 
 
-delta_rows = import_amex_transactions(
-    "/home/tjs/finance-automator/data/amexdeltaytd.csv"
-)
-plat_rows = import_amex_transactions("/home/tjs/finance-automator/data/amexplatytd.csv")
-chase_rows = import_chase_transactions("/home/tjs/finance-automator/data/chaseytd.CSV")
-wells_rows = import_wells_fargo_transactions(
-    "/home/tjs/finance-automator/data/wfytd.csv"
-)
+def main():
+    delta_rows = import_amex_transactions(
+        "/home/tjs/finance-automator/data/amexdeltaytd.csv"
+    )
+    plat_rows = import_amex_transactions(
+        "/home/tjs/finance-automator/data/amexplatytd.csv"
+    )
+    chase_rows = import_chase_transactions(
+        "/home/tjs/finance-automator/data/chaseytd.CSV"
+    )
+    wells_rows = import_wells_fargo_transactions(
+        "/home/tjs/finance-automator/data/wfytd.csv"
+    )
 
-transactions = list(itertools.chain(delta_rows, plat_rows, chase_rows, wells_rows))
+    transactions = list(itertools.chain(delta_rows, plat_rows, chase_rows, wells_rows))
 
-categories = get_categories_from_file(
-    "/home/tjs/finance-automator/data/categories.json"
-)
+    categories = get_categories_from_file(
+        "/home/tjs/finance-automator/data/categories.json"
+    )
 
-categorized, uncategorized = loop_to_set_category(transactions, categories)
+    categorized, uncategorized = loop_to_set_category(transactions, categories)
 
-# TODO: write uncategorized to file/queue.
+    # TODO: write uncategorized to file/queue.
 
-dfItem = pd.DataFrame.from_records(categorized)
-dfItem["Date"] = pd.to_datetime(dfItem["Date"])
-GroupItem = dfItem.groupby([pd.Grouper(key="Date", freq="M"), "Category"]).sum()
-print(GroupItem)
+    # dfItem = pd.DataFrame.from_records(categorized)
+    # dfItem["Date"] = pd.to_datetime(dfItem["Date"])
+    # GroupItem = dfItem.groupby([pd.Grouper(key="Date", freq="M"), "Category"]).sum()
+    # print(GroupItem)
+
+
+if __name__ == "__main__":
+    main()
