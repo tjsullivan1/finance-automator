@@ -1,5 +1,27 @@
 import csv
+import hashlib
+import jsonpickle
+
 from datetime import datetime
+
+
+def get_checksum_from_dict(transaction: dict) -> str:
+    return hashlib.md5(jsonpickle.encode(transaction).encode("utf-8")).hexdigest()
+
+
+def check_import_transaction_existed(checksum: str, checksum_list: list) -> bool:
+    return checksum in checksum_list
+
+
+def standardize_transaction(
+    date_str: str, amount: float, description: str, bank: str
+) -> dict:
+    return {
+        "Date": datetime.strptime(date_str, "%m/%d/%Y"),
+        "Amount": amount,
+        "Description": description,
+        "Bank": bank,
+    }
 
 
 def import_wells_fargo_transactions(statement_csv) -> list:
@@ -13,14 +35,18 @@ def import_wells_fargo_transactions(statement_csv) -> list:
 
         # extracting each data row one by one
         for row in csvreader:
-            rows.append(
-                {
-                    "Date": datetime.strptime(row[0], '%m/%d/%Y'),
-                    "Amount": float(row[1]),
-                    "Description": row[4],
-                    "Bank": "Wells Fargo",
-                }
+            original_transaction_checksum = get_checksum_from_dict(row)
+            transact_dict = standardize_transaction(
+                date_str=row[0],
+                amount=float(row[1]),
+                description=row[4],
+                bank="Wells Fargo",
             )
+            standardized_transaction_checksum = get_checksum_from_dict(transact_dict)
+
+            transact_dict["OriginalChecksum"] = original_transaction_checksum
+            transact_dict["StandardizedChecksum"] = standardized_transaction_checksum
+            rows.append(transact_dict)
 
     return rows
 
@@ -34,15 +60,18 @@ def import_amex_transactions(statement_csv) -> list:
     with open(statement_csv, "r") as csvfile:
         reader = csv.DictReader(csvfile, skipinitialspace=True)
         for row in reader:
-            # TODO: There's got to be a more pythonic way to do this.
-            rows.append(
-                {
-                    "Date": datetime.strptime(row.get("Date"), '%m/%d/%Y'),
-                    "Amount": -(float(row.get("Amount"))),
-                    "Description": row.get("Description"),
-                    "Bank": "American Express",
-                }
+            original_transaction_checksum = get_checksum_from_dict(row)
+            transact_dict = standardize_transaction(
+                date_str=row.get("Date"),
+                amount=-(float(row.get("Amount"))),
+                description=row.get("Description"),
+                bank="American Express",
             )
+            standardized_transaction_checksum = get_checksum_from_dict(transact_dict)
+
+            transact_dict["OriginalChecksum"] = original_transaction_checksum
+            transact_dict["StandardizedChecksum"] = standardized_transaction_checksum
+            rows.append(transact_dict)
 
     return rows
 
@@ -53,19 +82,17 @@ def import_chase_transactions(statement_csv) -> list:
     with open(statement_csv, "r") as csvfile:
         reader = csv.DictReader(csvfile, skipinitialspace=True)
         for row in reader:
-            # TODO: There's got to be a more pythonic way to do this.
-            rows.append(
-                {
-                    "Date": datetime.strptime(row.get("Transaction Date"), '%m/%d/%Y'),
-                    "Amount": float(row.get("Amount")),
-                    "Description": row.get("Description"),
-                    "Bank": "Chase Visa",
-                }
+            original_transaction_checksum = get_checksum_from_dict(row)
+            transact_dict = standardize_transaction(
+                date_str=row.get("Transaction Date"),
+                amount=(float(row.get("Amount"))),
+                description=row.get("Description"),
+                bank="Chase Visa",
             )
+            standardized_transaction_checksum = get_checksum_from_dict(transact_dict)
+
+            transact_dict["OriginalChecksum"] = original_transaction_checksum
+            transact_dict["StandardizedChecksum"] = standardized_transaction_checksum
+            rows.append(transact_dict)
 
     return rows
-
-
-# TODO: Add Marcus.com statement parser
-# TODO: Add paystub parser
-# TODO: Add fidelity statement parser
