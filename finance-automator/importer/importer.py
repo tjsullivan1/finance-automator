@@ -1,4 +1,6 @@
 import csv
+import hashlib
+import json
 from datetime import datetime
 
 
@@ -69,3 +71,9 @@ def import_chase_transactions(statement_csv) -> list:
 # TODO: Add Marcus.com statement parser
 # TODO: Add paystub parser
 # TODO: Add fidelity statement parser
+
+def get_checksum_from_dict(transaction: dict) -> str:
+     return hashlib.md5(json.dumps(transaction).encode('utf-8')).hexdigest()
+
+def check_import_transaction_existed(checksum: str, checksum_list: list) -> bool:
+    return checksum in checksum_list
