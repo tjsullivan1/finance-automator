@@ -3,6 +3,7 @@ import hashlib
 import itertools
 import json
 import re
+import os
 import uuid
 from datetime import datetime
 
@@ -176,6 +177,31 @@ def loop_to_set_category(transaction_rows, categories: list):
     return categorized_transactions, uncategorized_transactions
 
 
+def convert_row_to_entity(row_dict: dict) -> dict:
+    row_dict["PartitionKey"] = row_dict.get('Bank', 'manual')
+    row_dict["RowKey"] =  row_dict.get('StandardizedChecksum')
+    row_dict["Id"] = uuid.uuid4()
+
+    return row_dict
+
+
+def insert_into_table(transactions: list, table_name: str, connection_string=os.getenv('AZURE_STORAGE_CXN')):
+    with TableClient.from_connection_string(connection_string, table_name) as table_client:
+        # Create a table in case it does not already exist
+        try:
+            table_client.create_table()
+        except ResourceExistsError:
+            print("Table already exists")
+
+        for row in transactions:
+            # [START create_entity]
+            try:
+                resp = table_client.create_entity(convert_row_to_entity(row))
+                print(resp)
+            except ResourceExistsError:
+                print("Entity already exists")
+
+
 def main():
     delta_rows = import_amex_transactions(
         "/home/tjs/finance-automator/data/amexdeltaytd.csv"
@@ -198,7 +224,7 @@ def main():
 
     categorized, uncategorized = loop_to_set_category(transactions, categories)
 
-    # TODO: write uncategorized to file/queue.
+    insert_into_table(categorized, 'transactions')
 
     # dfItem = pd.DataFrame.from_records(categorized)
     # dfItem["Date"] = pd.to_datetime(dfItem["Date"])
