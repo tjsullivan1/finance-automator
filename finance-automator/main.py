@@ -1,23 +1,26 @@
+import ast
 import csv
+import datetime
 import hashlib
 import itertools
 import json
-import re
 import os
+import re
 import uuid
-from datetime import datetime
 
 import jsonpickle
 import pandas as pd
 from azure.core.exceptions import HttpResponseError, ResourceExistsError
 from azure.data.tables import TableClient
+from azure.storage.queue import (BinaryBase64DecodePolicy,
+                                 BinaryBase64EncodePolicy, QueueClient)
 
 
 def get_checksum_from_dict(transaction: dict) -> str:
     # TJS -- we are not using this for security, just for hashing for uniqueness.
-    return hashlib.md5(
+    return hashlib.md5(  #nosec
         jsonpickle.encode(transaction).encode("utf-8")
-    ).hexdigest()  # nosec
+    ).hexdigest()
 
 
 def check_import_transaction_existed(checksum: str, checksum_list: list) -> bool:
@@ -28,7 +31,7 @@ def standardize_transaction(
     date_str: str, amount: float, description: str, bank: str
 ) -> dict:
     return {
-        "Date": datetime.strptime(date_str, "%m/%d/%Y"),
+        "Date": datetime.datetime.strptime(date_str, "%m/%d/%Y"),
         "Amount": amount,
         "Description": description,
         "Bank": bank,
@@ -152,6 +155,8 @@ def get_category_from_user(trans, names):
 
         if user_defined_category in names:
             category_undefined = False
+        else:
+            print(f"{user_defined_category} not in {names}")
 
     return user_defined_category
 
@@ -178,15 +183,21 @@ def loop_to_set_category(transaction_rows, categories: list):
 
 
 def convert_row_to_entity(row_dict: dict) -> dict:
-    row_dict["PartitionKey"] = row_dict.get('Bank', 'manual')
-    row_dict["RowKey"] =  row_dict.get('StandardizedChecksum')
+    row_dict["PartitionKey"] = row_dict.get("Bank", "manual")
+    row_dict["RowKey"] = row_dict.get("StandardizedChecksum")
     row_dict["Id"] = uuid.uuid4()
 
     return row_dict
 
 
-def insert_into_table(transactions: list, table_name: str, connection_string=os.getenv('AZURE_STORAGE_CXN')):
-    with TableClient.from_connection_string(connection_string, table_name) as table_client:
+def insert_into_table(
+    transactions: list,
+    table_name: str,
+    connection_string=os.getenv("AZURE_STORAGE_CXN"),
+):
+    with TableClient.from_connection_string(
+        connection_string, table_name
+    ) as table_client:
         # Create a table in case it does not already exist
         try:
             table_client.create_table()
@@ -196,10 +207,73 @@ def insert_into_table(transactions: list, table_name: str, connection_string=os.
         for row in transactions:
             # [START create_entity]
             try:
-                resp = table_client.create_entity(convert_row_to_entity(row))
+                ent = convert_row_to_entity(row)
+                resp = table_client.create_entity(ent)
                 print(resp)
             except ResourceExistsError:
+                # TODO: Should probably log these, but I don't want to print these out.
                 print("Entity already exists")
+                # pass
+            except:
+                print(f"Got an erorr with {ent}")
+
+
+def insert_into_queue(
+    transaction: list,
+    queue_name: str,
+    connection_string=os.getenv("AZURE_STORAGE_CXN"),
+):
+    # print(transaction)
+
+    # Instantiate a QueueClient object which will
+    # be used to create and manipulate the queue
+    print("Creating queue: " + queue_name)
+    with QueueClient.from_connection_string(
+        connection_string, queue_name
+    ) as queue_client:
+        try:
+            # Create the queue
+            queue_client.create_queue()
+        except ResourceExistsError:
+            print("Queue already exists")
+
+        try:
+            queue_client.send_message(transaction)
+        except ResourceExistsError:
+            print("Transaction already exists in queue")
+
+
+def add_transaction_manually(
+    queue_name: str,
+    categories: list,
+    connection_string=os.getenv("AZURE_STORAGE_CXN"),
+):
+    manually_categorized = []
+
+    with QueueClient.from_connection_string(
+        connection_string, queue_name
+    ) as queue_client:
+        messages = queue_client.receive_messages()
+
+        for message in messages:
+            transaction = message.get("content")
+            parsed = ast.parse(transaction, mode="eval")
+            fixed = ast.fix_missing_locations(parsed)
+            compiled = compile(fixed, "<string>", "eval")
+            #TODO: this needs to be fixed. 
+            # I put this in place because the string that comes out of the queue doesn't reformat correctly as a dict.
+            # Ideally, I would determine how to do this with ast.literal_eval or just figure out why a dict doesn't convert.
+            # Both of those gave me options on 20220510
+            evaluated_message = eval(compiled) #nosec
+
+            evaluated_message["Category"] = get_category_from_user(
+                evaluated_message, categories
+            )
+            manually_categorized.append(evaluated_message)
+            print("Dequeueing message: " + message.content)
+            queue_client.delete_message(message.id, message.pop_receipt)
+
+    return manually_categorized
 
 
 def main():
@@ -224,7 +298,18 @@ def main():
 
     categorized, uncategorized = loop_to_set_category(transactions, categories)
 
-    insert_into_table(categorized, 'transactions')
+    for trans in uncategorized:
+        insert_into_queue(trans, "uncategorized-transactions")
+
+    # Manually categorize the transactions
+    category_names = [category.get("name") for category in categories]
+    manually_categorized = add_transaction_manually(
+        "uncategorized-transactions", category_names
+    )
+
+    fully_categorized = categorized + manually_categorized
+
+    insert_into_table(fully_categorized, "transactions")
 
     # dfItem = pd.DataFrame.from_records(categorized)
     # dfItem["Date"] = pd.to_datetime(dfItem["Date"])
