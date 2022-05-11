@@ -11,6 +11,7 @@ from azure.data.tables import TableClient
 from azure.storage.queue import (BinaryBase64DecodePolicy,
                                  BinaryBase64EncodePolicy, QueueClient)
 
+#TODO: I need to refactor these functions to make them more useful. 
 
 app = typer.Typer()
 
