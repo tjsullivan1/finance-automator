@@ -38,7 +38,7 @@ def standardize_transaction(
     }
 
 
-def import_wells_fargo_transactions(statement_csv) -> list:
+def import_wells_fargo_transactions(statement_csv, checksum_list) -> list:
     # initializing the titles and rows list
     rows = []
 
@@ -50,22 +50,25 @@ def import_wells_fargo_transactions(statement_csv) -> list:
         # extracting each data row one by one
         for row in csvreader:
             original_transaction_checksum = get_checksum_from_dict(row)
-            transact_dict = standardize_transaction(
-                date_str=row[0],
-                amount=float(row[1]),
-                description=row[4],
-                bank="Wells Fargo",
-            )
-            standardized_transaction_checksum = get_checksum_from_dict(transact_dict)
+            if check_import_transaction_existed(original_transaction_checksum, checksum_list):
+                print(f"{original_transaction_checksum} existed")
+            else:
+                transact_dict = standardize_transaction(
+                    date_str=row[0],
+                    amount=float(row[1]),
+                    description=row[4],
+                    bank="Wells Fargo",
+                )
+                standardized_transaction_checksum = get_checksum_from_dict(transact_dict)
 
-            transact_dict["OriginalChecksum"] = original_transaction_checksum
-            transact_dict["StandardizedChecksum"] = standardized_transaction_checksum
-            rows.append(transact_dict)
+                transact_dict["OriginalChecksum"] = original_transaction_checksum
+                transact_dict["StandardizedChecksum"] = standardized_transaction_checksum
+                rows.append(transact_dict)
 
     return rows
 
 
-def import_amex_transactions(statement_csv) -> list:
+def import_amex_transactions(statement_csv, checksum_list) -> list:
     """
     Amex is formatted with a header, so we can import this as a dictionary
     """
@@ -75,39 +78,45 @@ def import_amex_transactions(statement_csv) -> list:
         reader = csv.DictReader(csvfile, skipinitialspace=True)
         for row in reader:
             original_transaction_checksum = get_checksum_from_dict(row)
-            transact_dict = standardize_transaction(
-                date_str=row.get("Date"),
-                amount=-(float(row.get("Amount"))),
-                description=row.get("Description"),
-                bank="American Express",
-            )
-            standardized_transaction_checksum = get_checksum_from_dict(transact_dict)
+            if check_import_transaction_existed(original_transaction_checksum, checksum_list):
+                print(f"{original_transaction_checksum} existed")
+            else:       
+                transact_dict = standardize_transaction(
+                    date_str=row.get("Date"),
+                    amount=-(float(row.get("Amount"))),
+                    description=row.get("Description"),
+                    bank="American Express",
+                )
+                standardized_transaction_checksum = get_checksum_from_dict(transact_dict)
 
-            transact_dict["OriginalChecksum"] = original_transaction_checksum
-            transact_dict["StandardizedChecksum"] = standardized_transaction_checksum
-            rows.append(transact_dict)
+                transact_dict["OriginalChecksum"] = original_transaction_checksum
+                transact_dict["StandardizedChecksum"] = standardized_transaction_checksum
+                rows.append(transact_dict)
 
     return rows
 
 
-def import_chase_transactions(statement_csv) -> list:
+def import_chase_transactions(statement_csv, checksum_list) -> list:
     rows = []
 
     with open(statement_csv, "r") as csvfile:
         reader = csv.DictReader(csvfile, skipinitialspace=True)
         for row in reader:
             original_transaction_checksum = get_checksum_from_dict(row)
-            transact_dict = standardize_transaction(
-                date_str=row.get("Transaction Date"),
-                amount=(float(row.get("Amount"))),
-                description=row.get("Description"),
-                bank="Chase Visa",
-            )
-            standardized_transaction_checksum = get_checksum_from_dict(transact_dict)
+            if check_import_transaction_existed(original_transaction_checksum, checksum_list):
+                print(f"{original_transaction_checksum} existed")
+            else:
+                transact_dict = standardize_transaction(
+                    date_str=row.get("Transaction Date"),
+                    amount=(float(row.get("Amount"))),
+                    description=row.get("Description"),
+                    bank="Chase Visa",
+                )
+                standardized_transaction_checksum = get_checksum_from_dict(transact_dict)
 
-            transact_dict["OriginalChecksum"] = original_transaction_checksum
-            transact_dict["StandardizedChecksum"] = standardized_transaction_checksum
-            rows.append(transact_dict)
+                transact_dict["OriginalChecksum"] = original_transaction_checksum
+                transact_dict["StandardizedChecksum"] = standardized_transaction_checksum
+                rows.append(transact_dict)
 
     return rows
 
@@ -276,18 +285,37 @@ def add_transaction_manually(
     return manually_categorized
 
 
+def get_existing_checksums(
+    table_name: str,
+    connection_string=os.getenv("AZURE_STORAGE_CXN"),
+) -> list:
+    checksums = []
+    with TableClient.from_connection_string(
+        connection_string, table_name
+    ) as table_client:
+
+        entities = table_client.list_entities()
+
+        for item in entities:
+            checksums.append(item.get('OriginalChecksum'))
+
+    return checksums
+
+
 def main():
+    existing_checksums = get_existing_checksums('transactions')
+
     delta_rows = import_amex_transactions(
-        "/home/tjs/finance-automator/data/amexdeltaytd.csv"
+        "/home/tjs/finance-automator/data/amexdeltaytd.csv", existing_checksums
     )
     plat_rows = import_amex_transactions(
-        "/home/tjs/finance-automator/data/amexplatytd.csv"
+        "/home/tjs/finance-automator/data/amexplatytd.csv", existing_checksums
     )
     chase_rows = import_chase_transactions(
-        "/home/tjs/finance-automator/data/chaseytd.CSV"
+        "/home/tjs/finance-automator/data/chaseytd.CSV", existing_checksums
     )
     wells_rows = import_wells_fargo_transactions(
-        "/home/tjs/finance-automator/data/wfytd.csv"
+        "/home/tjs/finance-automator/data/wfytd.csv", existing_checksums
     )
 
     transactions = list(itertools.chain(delta_rows, plat_rows, chase_rows, wells_rows))
@@ -299,7 +327,10 @@ def main():
     categorized, uncategorized = loop_to_set_category(transactions, categories)
 
     for trans in uncategorized:
-        insert_into_queue(trans, "uncategorized-transactions")
+        if check_import_transaction_existed(trans.get('OriginalChecksum'), existing_checksums):
+            print("Transaction {trans} already existed")
+        else:
+            insert_into_queue(trans, "uncategorized-transactions")
 
     # Manually categorize the transactions
     category_names = [category.get("name") for category in categories]
