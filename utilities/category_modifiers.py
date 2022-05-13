@@ -102,7 +102,7 @@ def main(
         (i for i, item in enumerate(categories) if item["name"] == category), None
     )
 
-    if cat_index != None:
+    if cat_index is not None:
         strings = categories[cat_index].get("match_strings")
 
         if match_string:

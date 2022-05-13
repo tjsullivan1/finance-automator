@@ -1,4 +1,4 @@
-from typing import Optional
+# from typing import Optional
 
 import typer
 import datetime
@@ -6,15 +6,12 @@ import uuid
 import json
 import os
 
-from azure.core.exceptions import HttpResponseError, ResourceExistsError
+from azure.core.exceptions import ResourceExistsError
 from azure.data.tables import TableClient
-from azure.storage.queue import (BinaryBase64DecodePolicy,
-                                 BinaryBase64EncodePolicy, QueueClient)
 
-#TODO: I need to refactor these functions to make them more useful. 
+# TODO: I need to refactor these functions to make them more useful.
 
 app = typer.Typer()
-
 
 
 def get_categories_from_file(file) -> list:
@@ -45,8 +42,9 @@ def set_manual_transaction(
         "Amount": amount,
         "Description": description,
         "Bank": bank,
-        "Category": category
+        "Category": category,
     }
+
 
 def convert_row_to_entity(row_dict: dict) -> dict:
     row_dict["PartitionKey"] = row_dict.get("Bank", "manual")
@@ -80,17 +78,28 @@ def insert_into_table(
                 # TODO: Should probably log these, but I don't want to print these out.
                 print("Entity already exists")
                 # pass
-            except:
-                print(f"Got an erorr with {ent}")
+            # except:
+            #     print(f"Got an erorr with {ent}")
 
 
 @app.command("insert")
 def get_transaction_properties(
-    date: str = typer.Option(..., help="Please enter the transaction date formatted MM/DD/YYYY."),
-    amount: float = typer.Option(0.0, help="Please enter the transaction amount in USD, make it negative if it is an expense."),
-    description: str = typer.Option(..., help="Please enter a description for this transaction."),
-    bank: str = typer.Option("Manually Added", help="Please enter a bank for this transaction."),
-    category: str = typer.Option(..., help="Please enter a category for this transaction.")
+    date: str = typer.Option(
+        ..., help="Please enter the transaction date formatted MM/DD/YYYY."
+    ),
+    amount: float = typer.Option(
+        0.0,
+        help="Please enter the transaction amount in USD, make it negative if it is an expense.",
+    ),
+    description: str = typer.Option(
+        ..., help="Please enter a description for this transaction."
+    ),
+    bank: str = typer.Option(
+        "Manually Added", help="Please enter a bank for this transaction."
+    ),
+    category: str = typer.Option(
+        ..., help="Please enter a category for this transaction."
+    ),
 ):
     categories = get_categories_from_file(
         "/home/tjs/finance-automator/data/categories.json"
@@ -100,12 +109,7 @@ def get_transaction_properties(
     transaction = set_manual_transaction(date, amount, description, bank, category)
 
     if category not in category_names:
-        transaction["Category"] = get_category_from_user(
-            transaction, category_names
-        )
-    
-
-
+        transaction["Category"] = get_category_from_user(transaction, category_names)
 
 
 if __name__ == "__main__":

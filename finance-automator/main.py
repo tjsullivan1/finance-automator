@@ -9,16 +9,18 @@ import re
 import uuid
 
 import jsonpickle
-import pandas as pd
-from azure.core.exceptions import HttpResponseError, ResourceExistsError
+
+# import pandas as pd
+from azure.core.exceptions import ResourceExistsError
 from azure.data.tables import TableClient
-from azure.storage.queue import (BinaryBase64DecodePolicy,
-                                 BinaryBase64EncodePolicy, QueueClient)
+from azure.storage.queue import (
+    QueueClient,
+)
 
 
 def get_checksum_from_dict(transaction: dict) -> str:
     # TJS -- we are not using this for security, just for hashing for uniqueness.
-    return hashlib.md5(  #nosec
+    return hashlib.md5(  # nosec
         jsonpickle.encode(transaction).encode("utf-8")
     ).hexdigest()
 
@@ -50,7 +52,9 @@ def import_wells_fargo_transactions(statement_csv, checksum_list) -> list:
         # extracting each data row one by one
         for row in csvreader:
             original_transaction_checksum = get_checksum_from_dict(row)
-            if check_import_transaction_existed(original_transaction_checksum, checksum_list):
+            if check_import_transaction_existed(
+                original_transaction_checksum, checksum_list
+            ):
                 print(f"{original_transaction_checksum} existed")
             else:
                 transact_dict = standardize_transaction(
@@ -59,10 +63,14 @@ def import_wells_fargo_transactions(statement_csv, checksum_list) -> list:
                     description=row[4],
                     bank="Wells Fargo",
                 )
-                standardized_transaction_checksum = get_checksum_from_dict(transact_dict)
+                standardized_transaction_checksum = get_checksum_from_dict(
+                    transact_dict
+                )
 
                 transact_dict["OriginalChecksum"] = original_transaction_checksum
-                transact_dict["StandardizedChecksum"] = standardized_transaction_checksum
+                transact_dict[
+                    "StandardizedChecksum"
+                ] = standardized_transaction_checksum
                 rows.append(transact_dict)
 
     return rows
@@ -78,19 +86,25 @@ def import_amex_transactions(statement_csv, checksum_list) -> list:
         reader = csv.DictReader(csvfile, skipinitialspace=True)
         for row in reader:
             original_transaction_checksum = get_checksum_from_dict(row)
-            if check_import_transaction_existed(original_transaction_checksum, checksum_list):
+            if check_import_transaction_existed(
+                original_transaction_checksum, checksum_list
+            ):
                 print(f"{original_transaction_checksum} existed")
-            else:       
+            else:
                 transact_dict = standardize_transaction(
                     date_str=row.get("Date"),
                     amount=-(float(row.get("Amount"))),
                     description=row.get("Description"),
                     bank="American Express",
                 )
-                standardized_transaction_checksum = get_checksum_from_dict(transact_dict)
+                standardized_transaction_checksum = get_checksum_from_dict(
+                    transact_dict
+                )
 
                 transact_dict["OriginalChecksum"] = original_transaction_checksum
-                transact_dict["StandardizedChecksum"] = standardized_transaction_checksum
+                transact_dict[
+                    "StandardizedChecksum"
+                ] = standardized_transaction_checksum
                 rows.append(transact_dict)
 
     return rows
@@ -103,7 +117,9 @@ def import_chase_transactions(statement_csv, checksum_list) -> list:
         reader = csv.DictReader(csvfile, skipinitialspace=True)
         for row in reader:
             original_transaction_checksum = get_checksum_from_dict(row)
-            if check_import_transaction_existed(original_transaction_checksum, checksum_list):
+            if check_import_transaction_existed(
+                original_transaction_checksum, checksum_list
+            ):
                 print(f"{original_transaction_checksum} existed")
             else:
                 transact_dict = standardize_transaction(
@@ -112,10 +128,14 @@ def import_chase_transactions(statement_csv, checksum_list) -> list:
                     description=row.get("Description"),
                     bank="Chase Visa",
                 )
-                standardized_transaction_checksum = get_checksum_from_dict(transact_dict)
+                standardized_transaction_checksum = get_checksum_from_dict(
+                    transact_dict
+                )
 
                 transact_dict["OriginalChecksum"] = original_transaction_checksum
-                transact_dict["StandardizedChecksum"] = standardized_transaction_checksum
+                transact_dict[
+                    "StandardizedChecksum"
+                ] = standardized_transaction_checksum
                 rows.append(transact_dict)
 
     return rows
@@ -223,8 +243,8 @@ def insert_into_table(
                 # TODO: Should probably log these, but I don't want to print these out.
                 print("Entity already exists")
                 # pass
-            except:
-                print(f"Got an erorr with {ent}")
+            # except:
+            #     print(f"Got an erorr with {ent}")
 
 
 def insert_into_queue(
@@ -269,11 +289,11 @@ def add_transaction_manually(
             parsed = ast.parse(transaction, mode="eval")
             fixed = ast.fix_missing_locations(parsed)
             compiled = compile(fixed, "<string>", "eval")
-            #TODO: this needs to be fixed. 
+            # TODO: this needs to be fixed.
             # I put this in place because the string that comes out of the queue doesn't reformat correctly as a dict.
             # Ideally, I would determine how to do this with ast.literal_eval or just figure out why a dict doesn't convert.
             # Both of those gave me options on 20220510
-            evaluated_message = eval(compiled) #nosec
+            evaluated_message = eval(compiled)  # nosec
 
             evaluated_message["Category"] = get_category_from_user(
                 evaluated_message, categories
@@ -297,13 +317,13 @@ def get_existing_checksums(
         entities = table_client.list_entities()
 
         for item in entities:
-            checksums.append(item.get('OriginalChecksum'))
+            checksums.append(item.get("OriginalChecksum"))
 
     return checksums
 
 
 def main():
-    existing_checksums = get_existing_checksums('transactions')
+    existing_checksums = get_existing_checksums("transactions")
 
     delta_rows = import_amex_transactions(
         "/home/tjs/finance-automator/data/amexdeltaytd.csv", existing_checksums
@@ -327,7 +347,9 @@ def main():
     categorized, uncategorized = loop_to_set_category(transactions, categories)
 
     for trans in uncategorized:
-        if check_import_transaction_existed(trans.get('OriginalChecksum'), existing_checksums):
+        if check_import_transaction_existed(
+            trans.get("OriginalChecksum"), existing_checksums
+        ):
             print("Transaction {trans} already existed")
         else:
             insert_into_queue(trans, "uncategorized-transactions")

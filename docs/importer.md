@@ -1,4 +1,4 @@
-# Importer 
+# Importer
 
 These functions will allow importing data from different sources and convert it into our expected data format:
 
@@ -9,4 +9,3 @@ These functions will allow importing data from different sources and convert it 
 }
 
 The goal will be to parse these and add automatic categories where possible. Where not possible, we will flag for follow up.
-
