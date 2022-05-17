@@ -11,7 +11,7 @@ def update_match_strings(match_string, strings, categories, cat_index, file_path
         strings.append(match_string)
         categories[cat_index]["match_strings"] = strings
 
-        with open(file_path, "w") as file:
+        with open(file_path, "w", encoding="utf-8") as file:
             file.write(json.dumps(categories, indent=4))
             file.close()
 
@@ -19,7 +19,7 @@ def update_match_strings(match_string, strings, categories, cat_index, file_path
 def update_budget_goal(budget_goal, categories, cat_index, file_path):
     categories[cat_index]["budget_goal"] = budget_goal
 
-    with open(file_path, "w") as file:
+    with open(file_path, "w", encoding="utf-8") as file:
         file.write(json.dumps(categories, indent=4))
         file.close()
 
@@ -27,7 +27,7 @@ def update_budget_goal(budget_goal, categories, cat_index, file_path):
 def update_current_budget(current_budget, categories, cat_index, file_path):
     categories[cat_index]["current_budget"] = current_budget
 
-    with open(file_path, "w") as file:
+    with open(file_path, "w", encoding="utf-8") as file:
         file.write(json.dumps(categories, indent=4))
         file.close()
 
@@ -35,7 +35,7 @@ def update_current_budget(current_budget, categories, cat_index, file_path):
 def update_item_type(item_type, categories, cat_index, file_path):
     categories[cat_index]["Classification"] = item_type
 
-    with open(file_path, "w") as file:
+    with open(file_path, "w", encoding="utf-8") as file:
         file.write(json.dumps(categories, indent=4))
         file.close()
 
@@ -94,7 +94,7 @@ def main(
     item_type: str,
 ):
     print(budget_goal)
-    with open(file_path) as file:
+    with open(file_path, encoding="utf-8") as file:
         categories = json.load(file)
 
     # TODO: Consider refactoring this into its own function

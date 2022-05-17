@@ -15,7 +15,7 @@ app = typer.Typer()
 
 
 def get_categories_from_file(file) -> list:
-    with open(file) as file:
+    with open(file, encoding="utf-8") as file:
         categories = json.load(file)
 
     return categories
