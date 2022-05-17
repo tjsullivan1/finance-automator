@@ -45,7 +45,7 @@ def import_wells_fargo_transactions(statement_csv, checksum_list) -> list:
     rows = []
 
     # reading csv file
-    with open(statement_csv, "r") as csvfile:
+    with open(statement_csv, "r", encoding="utf-8") as csvfile:
         # creating a csv reader object
         csvreader = csv.reader(csvfile)
 
@@ -82,7 +82,7 @@ def import_amex_transactions(statement_csv, checksum_list) -> list:
     """
     rows = []
 
-    with open(statement_csv, "r") as csvfile:
+    with open(statement_csv, "r", encoding="utf-8") as csvfile:
         reader = csv.DictReader(csvfile, skipinitialspace=True)
         for row in reader:
             original_transaction_checksum = get_checksum_from_dict(row)
@@ -113,7 +113,7 @@ def import_amex_transactions(statement_csv, checksum_list) -> list:
 def import_chase_transactions(statement_csv, checksum_list) -> list:
     rows = []
 
-    with open(statement_csv, "r") as csvfile:
+    with open(statement_csv, "r", encoding="utf-8") as csvfile:
         reader = csv.DictReader(csvfile, skipinitialspace=True)
         for row in reader:
             original_transaction_checksum = get_checksum_from_dict(row)
@@ -142,7 +142,7 @@ def import_chase_transactions(statement_csv, checksum_list) -> list:
 
 
 def get_categories_from_file(file) -> list:
-    with open(file) as file:
+    with open(file, encoding="utf-8") as file:
         categories = json.load(file)
 
     return categories
